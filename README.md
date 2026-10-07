@@ -4,18 +4,11 @@ Plateforme de seconde main entre particuliers : annonces, négociation de prix, 
 
 > Projet pédagogique en phase de conception. Les exemples décrivent les contrats prévus ; l’application n’est pas encore implémentée.
 
-## Équipe et dépôt — étape 1
-
-- Équipe : deux à quatre personnes, noms à compléter.
-- Dépôt Git : TrocWear.
-- Action à vérifier par l’équipe : inviter le compte GitHub `charroux`.
-- Rapport détaillé : [rapport_trocwear.tex](rapport_trocwear.tex).
-
 ## Contexte et périmètre
 
 Un utilisateur publie des articles, consulte ceux des autres et négocie leur prix. Il peut acheter et vendre avec le même compte et la même session. Après un accord sur le prix, il confirme son achat ; la réservation doit réussir avant la création d’une livraison.
 
-Le projet ne comporte **ni paiement, ni retours, ni abonnements aux vendeurs**. Les favoris servent aux recommandations. Le transporteur, le suivi et les points relais sont simulés. L’acheteur peut modifier sa destination avant expédition, ou choisir un relais après une tentative échouée.
+Les favoris servent aux recommandations. Le transporteur, le suivi et les points relais sont simulés. L’acheteur peut modifier sa destination avant expédition, ou choisir un relais après une tentative échouée.
 
 ## Services et stockage
 
