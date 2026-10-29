@@ -1,0 +1,63 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px clamp(20px, 6vw, 110px);
+  border-bottom: 1px solid #e7e9df;
+  background: #fff;
+}
+
+.brand {
+  font-family: Manrope, sans-serif;
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -1.4px;
+}
+
+.brand span {
+  color: #417b57;
+}
+
+.brand .brand-dot {
+  color: #ec9a4c;
+}
+
+nav {
+  display: flex;
+  align-items: center;
+  gap: 33px;
+}
+
+nav a {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+nav a:hover,
+nav a.active {
+  color: #478a5d;
+}
+
+main {
+  min-height: calc(100vh - 160px);
+}
+
+footer {
+  padding: 22px;
+  text-align: center;
+  color: #879084;
+  font-size: 12px;
+  border-top: 1px solid #e7e9df;
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    padding: 18px;
+  }
+  nav {
+    gap: 15px;
+  }
+  nav a:not(.nav-account) {
+    display: none;
+  }
+}

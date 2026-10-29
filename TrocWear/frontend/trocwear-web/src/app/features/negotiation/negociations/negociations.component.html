@@ -1,0 +1,93 @@
+<section class="metier-page">
+  <div class="page-head">
+    <div>
+      <div class="eyebrow">MES NÉGOCIATIONS</div>
+      <h1>Négociations</h1>
+      <p class="muted">Propose un prix et suis l'avancement de tes échanges.</p>
+    </div>
+  </div>
+
+  <form class="metier-form" [formGroup]="form" (ngSubmit)="submit()">
+    <h2>Nouvelle proposition</h2>
+    <div class="grid">
+      <div>
+        <label for="titre">Objet</label>
+        <input
+          id="titre"
+          formControlName="titre"
+          placeholder="Offre pour la veste en jean"
+        />
+        @if (form.controls.titre.touched && form.controls.titre.invalid) {
+          <small class="error">Objet obligatoire (200 caractères max).</small>
+        }
+      </div>
+      <div>
+        <label for="montant">Montant proposé (€)</label>
+        <input
+          id="montant"
+          formControlName="montant"
+          inputmode="decimal"
+          placeholder="18,00"
+        />
+        @if (form.controls.montant.touched && form.controls.montant.invalid) {
+          <small class="error">Montant positif, 2 décimales max.</small>
+        }
+      </div>
+      <div>
+        <label for="annonceId">Identifiant de l'annonce (optionnel)</label>
+        <input
+          id="annonceId"
+          formControlName="annonceId"
+          placeholder="xxxxxxxx-xxxx-…"
+        />
+        @if (
+          form.controls.annonceId.touched && form.controls.annonceId.invalid
+        ) {
+          <small class="error">Identifiant (GUID) invalide.</small>
+        }
+      </div>
+      <div>
+        <label for="vendeurId">Identifiant du vendeur (optionnel)</label>
+        <input
+          id="vendeurId"
+          formControlName="vendeurId"
+          placeholder="xxxxxxxx-xxxx-…"
+        />
+        @if (
+          form.controls.vendeurId.touched && form.controls.vendeurId.invalid
+        ) {
+          <small class="error">Identifiant (GUID) invalide.</small>
+        }
+      </div>
+      <div class="full">
+        <label for="description">Message</label>
+        <textarea
+          id="description"
+          formControlName="description"
+          placeholder="Bonjour, je te propose…"
+        ></textarea>
+      </div>
+    </div>
+    @if (error()) {
+      <p class="notice-error" role="alert">{{ error() }}</p>
+    }
+    @if (success()) {
+      <p class="notice-ok" role="status">{{ success() }}</p>
+    }
+    <div class="actions">
+      <button
+        class="primary"
+        type="submit"
+        [disabled]="form.invalid || loading()"
+      >
+        {{ loading() ? "Envoi…" : "Envoyer la proposition" }}
+      </button>
+    </div>
+  </form>
+
+  <app-metier-list
+    type="negociations"
+    montantLabel="Montant proposé"
+    emptyText="Aucune négociation en cours."
+  />
+</section>

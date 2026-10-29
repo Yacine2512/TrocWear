@@ -1,0 +1,60 @@
+name: trocwear
+services:
+  postgres:
+    image: postgres:17.6
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-trocwear_auth}
+      POSTGRES_USER: ${POSTGRES_USER:-trocwear}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Add POSTGRES_PASSWORD in .env}
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      retries: 20
+  redis:
+    image: redis:7.4
+    command: [redis-server, --appendonly, 'yes']
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      retries: 20
+  mongo:
+    image: mongo:8.0
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-trocwear}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?Add MONGO_PASSWORD in .env}
+    ports: ['127.0.0.1:27017:27017']
+    volumes: [mongo_data:/data/db]
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'mongosh --quiet --username "$$MONGO_INITDB_ROOT_USERNAME" --password "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "db.runCommand({ping:1}).ok" | grep 1'
+      interval: 10s
+      retries: 30
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Postgres: 'Host=postgres;Port=5432;Database=${POSTGRES_DB:-trocwear_auth};Username=${POSTGRES_USER:-trocwear};Password=${POSTGRES_PASSWORD}'
+      ConnectionStrings__Redis: redis:6379
+      ConnectionStrings__Mongo: 'mongodb://${MONGO_USER:-trocwear}:${MONGO_PASSWORD}@mongo:27017/?authSource=admin'
+      Cors__AllowedOrigins__0: http://localhost:4200
+      Cors__AllowedOrigins__1: http://127.0.0.1:4200
+    ports: ['127.0.0.1:5080:8080']
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      mongo: {condition: service_healthy}
+  frontend:
+    build:
+      context: ./frontend/trocwear-web
+      dockerfile: Dockerfile
+    ports: ['127.0.0.1:4200:4200']
+    depends_on: [api]
+volumes:
+  postgres_data:
+  redis_data:
+  mongo_data:

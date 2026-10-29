@@ -1,0 +1,8 @@
+
+**/dist/
+**/.angular/
+.vs/
+*.user
+
+.env
+**/.env

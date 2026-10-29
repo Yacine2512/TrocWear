@@ -1,0 +1,156 @@
+.auth-layout {
+  display: grid;
+  grid-template-columns: 1fr minmax(340px, 470px);
+  gap: min(7vw, 110px);
+  align-items: center;
+  max-width: 1150px;
+  margin: 0 auto;
+  padding: clamp(45px, 8vw, 125px) 24px;
+}
+
+.auth-intro h1 {
+  font:
+    800 clamp(38px, 4.6vw, 63px) / 1.14 Manrope,
+    sans-serif;
+  letter-spacing: -2.3px;
+  margin: 24px 0 22px;
+}
+
+.auth-intro h1 em {
+  color: #438a5a;
+  font-style: normal;
+}
+
+.auth-intro > p {
+  max-width: 430px;
+  font-size: 17px;
+  line-height: 1.8;
+  color: #7b887c;
+}
+
+.decor {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 35px;
+  font-size: 14px;
+  color: #65846c;
+}
+
+.decor span {
+  font-size: 28px;
+  color: #e5a04f;
+}
+
+.auth-card {
+  background: white;
+  border: 1px solid #e8ebe1;
+  border-radius: 19px;
+  padding: 38px;
+  box-shadow: 0 22px 75px rgba(28, 39, 32, 0.06);
+}
+
+.auth-card > .muted {
+  font-size: 14px;
+  margin: 9px 0 30px;
+}
+
+.auth-card label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 21px 0 9px;
+}
+
+.auth-card input:not(.mat-mdc-input-element) {
+  width: 100%;
+  border: 1px solid #dce4db;
+  background: #fdfefb;
+  border-radius: 9px;
+  padding: 14px 15px;
+  outline: none;
+}
+
+.auth-card input:not(.mat-mdc-input-element):focus {
+  border-color: #4c9864;
+  box-shadow: 0 0 0 3px #ddefe1;
+}
+
+.error {
+  display: block;
+  color: #ba423d;
+  margin-top: 5px;
+}
+
+.primary {
+  display: block;
+  width: 100%;
+  background: #408a57;
+  color: white;
+  border: 0;
+  border-radius: 9px;
+  font-weight: 700;
+  padding: 15px;
+  cursor: pointer;
+  margin-top: 27px;
+}
+
+.primary:hover {
+  background: #2e7045;
+}
+
+.primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.notice-ok {
+  background: #e9f5ec;
+  color: #2f7746;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+}
+
+.form-foot {
+  text-align: center;
+  font-size: 13px;
+  color: #78857a;
+  margin-top: 25px;
+}
+
+.form-foot a {
+  font-weight: 800;
+  color: #408a57;
+}
+
+.auth-card {
+  mat-form-field {
+    width: 100%;
+    margin-top: 12px;
+  }
+  button[mat-flat-button] {
+    width: 100%;
+    margin-top: 16px;
+    min-height: 48px;
+    border-radius: 9px;
+    background: #408a57;
+    color: #fff;
+  }
+}
+@media (max-width: 760px) {
+  .auth-layout {
+    grid-template-columns: 1fr;
+    gap: 30px;
+    padding-top: 45px;
+  }
+  .auth-intro h1 {
+    font-size: 39px;
+  }
+  .decor {
+    margin-top: 5px;
+  }
+  .auth-card {
+    padding: 26px;
+  }
+}

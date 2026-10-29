@@ -2,29 +2,133 @@
 
 Plateforme de seconde main entre particuliers : annonces, négociation de prix, favoris et livraison simulée, avec un seul compte pour acheter et vendre.
 
-> Projet pédagogique en phase de conception. Les exemples décrivent les contrats prévus ; l’application n’est pas encore implémentée.
+> Projet pédagogique. Une **première version exécutable** est implémentée : authentification complète, et gestion des annonces, négociations et livraisons sous forme de CRUD. Les sections « Conception » décrivent la cible définie dans le rapport ; l'écart entre cette cible et le code est résumé dans [État du projet](#état-du-projet).
 
 ## Contexte et périmètre
 
-Un utilisateur publie des articles, consulte ceux des autres et négocie leur prix. Il peut acheter et vendre avec le même compte et la même session. Après un accord sur le prix, il confirme son achat ; la réservation doit réussir avant la création d’une livraison.
+Un utilisateur publie des articles, consulte ceux des autres et négocie leur prix. Il peut acheter et vendre avec le même compte et la même session. Après un accord sur le prix, il confirme son achat ; la réservation doit réussir avant la création d'une livraison.
 
-Les favoris servent aux recommandations. Le transporteur, le suivi et les points relais sont simulés. L’acheteur peut modifier sa destination avant expédition, ou choisir un relais après une tentative échouée.
+Les favoris servent aux recommandations. Le transporteur, le suivi et les points relais sont simulés. L'acheteur peut modifier sa destination avant expédition, ou choisir un relais après une tentative échouée.
+
+## Démarrage rapide (Docker)
+
+**Prérequis :** Docker Desktop. Aucun SDK .NET ni Node n'est nécessaire sur la machine.
+
+Toutes les commandes se lancent depuis le dossier qui contient `docker-compose.yml`.
+
+```powershell
+Copy-Item .env.example .env     # puis remplacer les CHANGE_ME par vos mots de passe
+docker compose up -d --build     # premier lancement : quelques minutes
+docker compose ps                # les 5 services doivent être "running"
+```
+
+| Adresse | Contenu |
+|---|---|
+| http://localhost:4200 | Application Angular |
+| http://localhost:5080/swagger | Documentation de l'API (Swagger) |
+| http://localhost:5080/health/ready | Santé : PostgreSQL, Redis et MongoDB |
+
+Commandes utiles :
+
+```powershell
+docker compose logs --tail=80 api   # logs de l'API (erreurs, exceptions)
+docker compose down                 # arrêter (les données sont conservées)
+docker compose down -v              # arrêter ET effacer les bases
+```
+
+Changer un mot de passe dans `.env` ne modifie pas une base déjà initialisée : en développement, recréer les volumes avec `docker compose down -v`.
+
+**Lancer l'API hors Docker** (développement) : démarrer uniquement les bases avec `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis mongo`, renseigner les mots de passe dans `backend/TrocWear.Api/appsettings.json`, puis `dotnet run --project backend/TrocWear.Api` (port 5080) et, dans `frontend/trocwear-web`, `npm ci` puis `npm start`.
+
+## Architecture implémentée
+
+| Élément | Technologie |
+|---|---|
+| API | ASP.NET Core (.NET 10), MediatR (CQRS), FluentValidation, Swagger |
+| Frontend | Angular 21 (composants standalone, Angular Material) |
+| Comptes et outbox | PostgreSQL 17 : EF Core pour les écritures, Dapper pour les lectures |
+| Sessions et événements | Redis 7 |
+| Annonces, négociations, livraisons | MongoDB 8 : trois bases distinctes |
+
+Le backend comporte **quatre projets C#**, en architecture en couches :
+
+```text
+backend/
+  TrocWear.Api/             Contrôleurs REST, authentification par session Redis, Program.cs
+  TrocWear.Application/     Commandes, requêtes, handlers, interfaces, validation
+  TrocWear.Domain/          Modèles, DTOs, événements, règles métier
+  TrocWear.Infrastructure/  EF Core, Dapper, Redis, MongoDB, outbox
+frontend/trocwear-web/      Application Angular
+scripts/                    Tests de bout en bout et contrôles statiques
+```
+
+Dépendances : `Api → Application, Infrastructure, Domain` ; `Infrastructure → Application, Domain` ; `Application → Domain` ; `Domain → aucune`.
+
+Les domaines Authentification, Annonces, Négociations et Livraisons sont des **modules d'une même API** (monolithe modulaire), et non des microservices déployés séparément.
+
+### Sécurité
+
+- Mots de passe hachés en **PBKDF2-HMAC-SHA256** (600 000 itérations, sel de 128 bits).
+- Session dans un cookie `trocwear.sid` **HttpOnly**, SameSite=Lax, Secure hors développement. Redis ne stocke que le **SHA-256 du jeton** : clé `session:<hash>`, expiration 3600 s.
+- Protection CSRF : les requêtes `POST`, `PATCH`, `PUT` et `DELETE` exigent l'en-tête `X-TrocWear-Request: 1` (sauf inscription et connexion) et une origine autorisée.
+- Chaque utilisateur ne peut lire, modifier ou supprimer que ses propres éléments (réponse 403 sinon).
+
+### Endpoints
+
+Authentification :
+
+| Méthode | Route | Rôle |
+|---|---|---|
+| POST | `/api/auth/register` | Inscription (`pseudonyme`, `email`, `password` ≥ 12 caractères, `adresseParDefaut` optionnelle) |
+| POST | `/api/auth/login` | Connexion : pose le cookie de session |
+| GET | `/api/auth/me` | Utilisateur connecté |
+| PATCH | `/api/auth/profile` | Modification du pseudonyme avec contrôle de version (`versionAttendue`, 409 si obsolète) |
+| POST | `/api/auth/logout` | Déconnexion : supprime la session Redis et le cookie |
+
+Pour chacun des modules `annonces`, `negociations` et `livraisons` (session requise) :
+
+| Méthode | Route | Rôle |
+|---|---|---|
+| POST | `/api/{module}` | Création |
+| GET | `/api/{module}` | Éléments **de l'utilisateur connecté** |
+| GET | `/api/{module}/{id}` | Détail |
+| PATCH | `/api/{module}/{id}/statut` | Changement de statut |
+| DELETE | `/api/{module}/{id}` | Suppression |
+
+Exemple de création : `{ "titre": "Veste", "description": "Bon état", "prixCentimes": 2300 }`. Les champs `description`, `annonceId`, `acheteurId`, `vendeurId` et `adresse` sont optionnels.
+
+### Correspondance interface / API
+
+| Écran Angular | Appels API |
+|---|---|
+| Inscription | `POST /api/auth/register` |
+| Connexion | `POST /api/auth/login`, puis `GET /api/auth/me` |
+| Mon compte | `GET /api/auth/me`, `PATCH /api/auth/profile`, `POST /api/auth/logout` |
+| Annonces, Nouvelle annonce | `GET` et `POST /api/annonces`, `PATCH …/statut`, `DELETE` |
+| Négociations | `GET` et `POST /api/negociations`, `PATCH …/statut`, `DELETE` |
+| Livraisons | `GET` et `POST /api/livraisons`, `PATCH …/statut`, `DELETE` |
 
 ## Services et stockage
 
-| Service | Responsabilité | Modèle et moteur proposés |
-|---|---|---|
-| Authentification | Comptes et sessions | SQL : PostgreSQL ; clé-valeur : Redis |
-| Annonces | Publication, recherche et réservation | Document : MongoDB |
-| Négociation | Offres, contre-offres, accord | Wide-column : Cassandra |
-| Livraison | Destination, tentatives et suivi | Document : MongoDB |
-| Recommandation | Favoris et suggestions | Graphe : Neo4j |
+| Service | Responsabilité | Conception (rapport) | Implémenté |
+|---|---|---|---|
+| Authentification | Comptes et sessions | SQL : PostgreSQL ; clé-valeur : Redis | ✅ PostgreSQL + Redis, comme prévu |
+| Annonces | Publication, recherche et réservation | Document : MongoDB | ⚠️ MongoDB `trocwear_annonces` : CRUD et statut uniquement |
+| Négociation | Offres, contre-offres, accord | Wide-column : Cassandra | ⚠️ MongoDB `trocwear_negociations` : CRUD simplifié, pas de Cassandra |
+| Livraison | Destination, tentatives et suivi | Document : MongoDB | ⚠️ MongoDB `trocwear_livraisons` : CRUD simplifié |
+| Recommandation | Favoris et suggestions | Graphe : Neo4j | ❌ Non implémenté |
 
-Ces choix illustrent différents modèles ; SQL pourrait aussi répondre à de nombreux besoins. Les versions, le langage serveur, le frontend et la messagerie restent à fixer.
+Ces choix illustrent différents modèles ; SQL pourrait aussi répondre à de nombreux besoins.
+
+---
+
+# Conception (rapport)
+
+Les sections suivantes décrivent l'architecture cible. Les encadrés « Dans le code » signalent les différences avec l'implémentation actuelle.
 
 ## Commandes — étape 2
 
-Une commande demande un traitement et peut être refusée. L’acteur est déterminé par la session vérifiée côté serveur.
+Une commande demande un traitement et peut être refusée. L'acteur est déterminé par la session vérifiée côté serveur.
 
 | Service | Commandes |
 |---|---|
@@ -33,6 +137,8 @@ Une commande demande un traitement et peut être refusée. L’acteur est déter
 | Négociation | OuvrirNegociation, SoumettreProposition, AccepterProposition, RefuserProposition, ConfirmerAchat |
 | Livraison | CreerLivraisonDepuisAccord, ModifierDestination, DeclarerExpedition, SimulerProgression, SignalerEchecLivraison, ChoisirPointRelais, ConfirmerReception |
 | Recommandation | AjouterFavori, RetirerFavori |
+
+> **Dans le code :** les quatre commandes d'Authentification sont implémentées (`RegisterUserCommand`, `LoginUserCommand`, `LogoutUserCommand`, `UpdateProfileCommand`). Pour les autres services, seules des opérations génériques existent : créer, changer de statut, supprimer.
 
 Exemple de contrat JSON ; tous les autres contrats sont détaillés dans le rapport :
 
@@ -53,12 +159,12 @@ Exemple de contrat JSON ; tous les autres contrats sont détaillés dans le rapp
 
 ## Agrégats — étape 4
 
-Un agrégat rassemble les données et les règles qui doivent rester cohérentes lors d’une modification. Un service gère plusieurs instances ; un agrégat n’est pas toute une base.
+Un agrégat rassemble les données et les règles qui doivent rester cohérentes lors d'une modification. Un service gère plusieurs instances ; un agrégat n'est pas toute une base.
 
 | Agrégat | Règle principale |
 |---|---|
-| Utilisateur | Un compte permet d’acheter et de vendre ; email unique |
-| Annonce | Un seul acheteur peut réserver l’article |
+| Utilisateur | Un compte permet d'acheter et de vendre ; email unique |
+| Annonce | Un seul acheteur peut réserver l'article |
 | Négociation | Seule une proposition active peut être acceptée |
 | Livraison | Un dossier par accord confirmé ; transitions contrôlées |
 | Favori | Un seul favori par couple utilisateur/annonce |
@@ -84,7 +190,9 @@ Les sessions expirent indépendamment des comptes. Le graphe entier et le résul
 }
 ```
 
-Les sessions sont stockées en clé-valeur, par exemple `session:jeton` → `{"utilisateurId":"U12"}`, avec une expiration. Les mots de passe hachés restent dans Authentification.
+Les sessions sont stockées en clé-valeur avec une expiration. Les mots de passe hachés restent dans Authentification.
+
+> **Dans le code :** table `users`, avec email unique insensible à la casse et `Version` comme jeton de concurrence. Le hachage est fait en **PBKDF2-SHA256** au lieu d'Argon2id, pour éviter une dépendance tierce. `adresseParDefaut` est une simple chaîne et non un objet structuré. La clé de session est `session:<SHA-256 du jeton>` → identifiant utilisateur, avec `SET … EX 3600` : le jeton lui-même n'est jamais stocké.
 
 ### Annonce — document
 
@@ -111,6 +219,8 @@ Les sessions sont stockées en clé-valeur, par exemple `session:jeton` → `{"u
 }
 ```
 
+> **Dans le code :** les trois modules utilisent pour l'instant un même document générique (`MetierDocument`) : `id`, `ownerId`, `titre`, `description`, `prixCentimes`, `statut` (par défaut `nouveau`), `annonceId`, `acheteurId`, `vendeurId`, `adresse`, `createdAt` et `updatedAt`. Catégorie, caractéristiques, photos, version et réservation ne sont pas encore modélisées.
+
 ### Négociation — wide-column
 
 ```json
@@ -130,7 +240,9 @@ Les sessions sont stockées en clé-valeur, par exemple `session:jeton` → `{"u
 }
 ```
 
-L’historique est une table séparée : partition par négociation, tri par date et identifiant d’événement. L’état courant nécessite un contrôle de concurrence, par exemple une LWT Cassandra ; ajouter une ligne d’historique ne suffit pas à garantir l’accord.
+L'historique est une table séparée : partition par négociation, tri par date et identifiant d'événement. L'état courant nécessite un contrôle de concurrence, par exemple une LWT Cassandra ; ajouter une ligne d'historique ne suffit pas à garantir l'accord.
+
+> **Dans le code :** stockage dans MongoDB (`trocwear_negociations`) avec le document générique. Cassandra, l'historique et le contrôle de concurrence ne sont pas implémentés.
 
 ### Livraison — document
 
@@ -172,6 +284,8 @@ L’historique est une table séparée : partition par négociation, tri par dat
 }
 ```
 
+> **Dans le code :** document générique dans `trocwear_livraisons`, avec une adresse texte. L'interface la pré-remplit avec l'adresse par défaut du profil.
+
 ### Favori — graphe
 
 ```json
@@ -183,6 +297,8 @@ L’historique est une table séparée : partition par négociation, tri par dat
 }
 ```
 
+> **Dans le code :** non implémenté.
+
 ## Événements et réplicas — étape 5
 
 Un événement décrit un fait enregistré. Un réplica est une copie locale qui permet au consommateur de lire les données sans appeler leur service source à chaque fois.
@@ -191,10 +307,12 @@ Un événement décrit un fait enregistré. Un réplica est une copie locale qui
 |---|---|---|---|---|
 | Authentification | Annonces, Négociation | UtilisateurCree | ProfilPublicModifie | Identifiant et pseudonyme |
 | Annonces | Recommandation | AnnoncePubliee | AnnonceModifiee, AnnonceReservee | Description publique et disponibilité |
-| Négociation | Livraison | PrixAccepte | AccordConfirme | Pré-dossier d’accord, puis accord confirmé |
+| Négociation | Livraison | PrixAccepte | AccordConfirme | Pré-dossier d'accord, puis accord confirmé |
 | Livraison | Négociation | LivraisonCreee | LivraisonStatutModifie | Résumé de suivi |
 
-PrixAccepte crée seulement une copie d’accord dans Livraison, **aucune expédition**. AccordConfirme ajoute la réservation et la destination validée ; il permet de créer le dossier de livraison. Cette séparation rend explicites la création et la mise à jour du réplica demandées par le cours.
+PrixAccepte crée seulement une copie d'accord dans Livraison, **aucune expédition**. AccordConfirme ajoute la réservation et la destination validée ; il permet de créer le dossier de livraison. Cette séparation rend explicites la création et la mise à jour du réplica demandées par le cours.
+
+> **Dans le code :** `UtilisateurCree` et `ProfilPublicModifie` sont produits par Authentification. Ils sont écrits dans une table **outbox** PostgreSQL, dans la même transaction que le compte, puis publiés dans la liste Redis `trocwear:events:published` par un service d'arrière-plan, avec nouvelles tentatives et délai croissant. **Aucun consommateur ni réplica n'est encore implémenté.** Les autres événements sont seulement déclarés comme contrats (`EventContracts.cs`).
 
 Exemple de création :
 
@@ -264,13 +382,17 @@ Réplica public obtenu :
 }
 ```
 
-Les événements possèdent un identifiant et une version source. Les consommateurs ignorent les doublons et les anciennes versions. Les contrats détaillés du rapport fournissent des instantanés complets du sous-ensemble répliqué. Une publication durable et une procédure de reprise devront être implémentées.
+Les événements possèdent un identifiant et une version source. Les consommateurs ignorent les doublons et les anciennes versions. Les contrats détaillés du rapport fournissent des instantanés complets du sous-ensemble répliqué.
+
+> **Dans le code :** la publication durable (outbox) est en place ; la consommation, la déduplication et la procédure de reprise côté consommateurs restent à implémenter. Dans les événements émis, le récepteur s'écrit `negociations` (au pluriel).
 
 ## Projections — étape 6
 
+> **Dans le code :** les projections ci-dessous ne sont pas encore implémentées.
+
 ### Accord vers Livraison
 
-Le service copie les références de l’accord et la destination validée, génère un numéro de suivi simulé et initialise son propre état. La destination effective devient une donnée de Livraison : une modification du profil ne doit pas l’écraser.
+Le service copie les références de l'accord et la destination validée, génère un numéro de suivi simulé et initialise son propre état. La destination effective devient une donnée de Livraison : une modification du profil ne doit pas l'écraser.
 
 Requête de lecture :
 
@@ -278,7 +400,7 @@ Requête de lecture :
 {"requete":"ConsulterLivraison","parametres":{"livraisonId":"L9"}}
 ```
 
-Après un échec, l’acheteur choisit un relais valide :
+Après un échec, l'acheteur choisit un relais valide :
 
 ```json
 {
@@ -289,11 +411,11 @@ Après un échec, l’acheteur choisit un relais valide :
 }
 ```
 
-Livraison passe de `en_attente_nouvelle_destination` à `reacheminement_planifie`. Le service conserve la tentative échouée et remplace la destination effective par le relais. Il ne modifie ni l’adresse du compte ni l’accord initial.
+Livraison passe de `en_attente_nouvelle_destination` à `reacheminement_planifie`. Le service conserve la tentative échouée et remplace la destination effective par le relais. Il ne modifie ni l'adresse du compte ni l'accord initial.
 
 ### Annonce vers Recommandation
 
-Le service transforme les annonces en nœuds Article, normalise les catégories et calcule l’éligibilité à partir du statut. Les favoris deviennent des relations AIME. Les articles réservés, déjà favoris ou appartenant à l’utilisateur sont exclus des suggestions.
+Le service transforme les annonces en nœuds Article, normalise les catégories et calcule l'éligibilité à partir du statut. Les favoris deviennent des relations AIME. Les articles réservés, déjà favoris ou appartenant à l'utilisateur sont exclus des suggestions.
 
 ```json
 {
@@ -313,37 +435,73 @@ Requête :
 {"requete":"RecommanderArticles","parametres":{"limite":10}}
 ```
 
-L’utilisateur est déduit de la session. Exemple de règle : recommander les articles aimés par d’autres utilisateurs ayant des favoris en commun avec lui.
+L'utilisateur est déduit de la session. Exemple de règle : recommander les articles aimés par d'autres utilisateurs ayant des favoris en commun avec lui.
 
-## Exemples d’accès aux stockages
+## Exemples d'accès aux stockages
 
-| Modèle | Accès principal | Exemple |
-|---|---|---|
-| SQL | Retrouver le compte par email unique | SELECT paramétré |
-| Clé-valeur | Retrouver la session par jeton | Redis GET, SET avec EX |
-| Document | Consulter une annonce ; réserver sous condition | MongoDB findOneAndUpdate |
-| Wide-column | Lire les 20 derniers échanges de N45 | Partition N45 et tri temporel |
-| Graphe | Parcourir les favoris communs | Cypher MATCH |
+| Modèle | Accès principal | Exemple | Dans le code |
+|---|---|---|---|
+| SQL | Retrouver le compte par email unique | SELECT paramétré | ✅ EF Core (écriture) et Dapper (`SELECT … WHERE "Id" = @UserId`) |
+| Clé-valeur | Retrouver la session par jeton | Redis GET, SET avec EX | ✅ `SET session:<hash> … EX 3600`, `GET`, `DEL` |
+| Document | Consulter une annonce ; réserver sous condition | MongoDB findOneAndUpdate | ⚠️ Find, ReplaceOne (upsert), DeleteOne ; pas de réservation conditionnelle |
+| Wide-column | Lire les 20 derniers échanges de N45 | Partition N45 et tri temporel | ❌ |
+| Graphe | Parcourir les favoris communs | Cypher MATCH | ❌ |
 
 Le rapport contient le SQL, les commandes Redis, les requêtes MongoDB, le CQL Cassandra et une requête Cypher complète.
 
 ## Parcours principal
 
-1. Le vendeur publie l’article.
-2. L’acheteur et le vendeur négocient puis acceptent un prix ; l’article reste disponible.
-3. L’acheteur confirme avec une destination validée.
-4. Annonces réserve l’article de manière atomique.
-5. Négociation confirme l’accord ; Livraison crée un dossier unique.
-6. Le vendeur déclare l’expédition et le suivi évolue par simulation.
-7. En cas d’échec, l’acheteur peut choisir un point relais.
+1. Le vendeur publie l'article.
+2. L'acheteur et le vendeur négocient puis acceptent un prix ; l'article reste disponible.
+3. L'acheteur confirme avec une destination validée.
+4. Annonces réserve l'article de manière atomique.
+5. Négociation confirme l'accord ; Livraison crée un dossier unique.
+6. Le vendeur déclare l'expédition et le suivi évolue par simulation.
+7. En cas d'échec, l'acheteur peut choisir un point relais.
 
-Une réservation refusée empêche la confirmation. Une réservation réussie suivie d’une confirmation impossible nécessite une compensation coordonnée. Une panne temporaire de Livraison se traite par reprise, sans créer de doublon.
+Une réservation refusée empêche la confirmation. Une réservation réussie suivie d'une confirmation impossible nécessite une compensation coordonnée. Une panne temporaire de Livraison se traite par reprise, sans créer de doublon.
 
-## État du projet et vérifications prévues
+> **Dans le code :** seule l'étape 1 est réalisée telle quelle. Les négociations et livraisons se créent manuellement, sans enchaînement automatique, et les identifiants d'annonce, d'acheteur ou de vendeur se saisissent à la main.
 
-Les API, la messagerie, les bases et l’interface restent à développer. Les vérifications porteront notamment sur les réservations concurrentes, les événements dupliqués ou désordonnés, l’isolation des destinations et les autorisations. Il n’existe pas encore de commande de lancement de l’application.
+---
 
-Pour compiler le rapport, placer `rapport_trocwear.tex` dans un projet Overleaf et choisir **XeLaTeX**, ou exécuter deux fois `xelatex rapport_trocwear.tex` dans un environnement LaTeX équipé. Le fichier est autonome et ne nécessite pas d’images externes.
+## État du projet
+
+### Implémenté
+
+- Authentification complète : inscription, connexion, session Redis, profil avec contrôle de version, déconnexion.
+- Outbox PostgreSQL et publication Redis de `UtilisateurCree` et `ProfilPublicModifie`.
+- CRUD MongoDB des annonces, négociations et livraisons, avec contrôle du propriétaire.
+- Interface Angular couvrant l'ensemble de ces endpoints.
+- Endpoints de santé (`/health/live`, `/health/ready`) et Swagger.
+
+### Reste à faire
+
+- **Recherche des annonces** : chaque utilisateur ne voit que ses propres annonces ; il n'existe pas encore d'endpoint pour consulter celles des autres.
+- Réservation atomique d'une annonce, workflow de négociation (propositions, contre-offres, acceptation, confirmation d'achat).
+- Workflow de livraison : création depuis un accord, expédition, simulation du suivi, point relais.
+- Consommateurs d'événements et réplicas, projections de l'étape 6.
+- Cassandra (Négociation), Neo4j (Favoris et Recommandation).
+- Déploiement en services indépendants : le cours demande au moins deux services, alors que cette version est un monolithe modulaire.
+
+### Limites connues
+
+- La migration EF Core initiale a été écrite à la main : l'avertissement `PendingModelChangesWarning` est ignoré en développement. Régénérer les migrations avant toute mise en production.
+- Actualiser la page (F5) sur une adresse imbriquée (ex. `/annonces/nouvelle`) affiche une page blanche : il manque `<base href="/" />` dans `frontend/trocwear-web/src/index.html`.
+- Le message `Cannot load library libgssapi_krb5.so.2` dans les logs de l'API est sans conséquence (authentification Kerberos non utilisée).
+
+## Vérifications
+
+```bash
+python3 scripts/verify-structure.py   # contrôles statiques : projets, références, JSON, composants
+bash scripts/test-auth-e2e.sh         # parcours d'authentification complet (application lancée, Git Bash ou WSL)
+```
+
+Le test de bout en bout vérifie l'inscription, le refus d'un email en double quelle que soit la casse, la connexion, la présence et le TTL de la session dans Redis, le hachage du mot de passe et l'événement outbox dans PostgreSQL, la modification du profil, puis la déconnexion et la révocation de la session.
+
+## Rapport
+
+Pour compiler le rapport, placer `rapport_trocwear.tex` dans un projet Overleaf et choisir **XeLaTeX**, ou exécuter deux fois `xelatex rapport_trocwear.tex` dans un environnement LaTeX équipé. Le fichier est autonome et ne nécessite pas d'images externes.
 
 ## Documentation officielle
 
@@ -351,3 +509,5 @@ Pour compiler le rapport, placer `rapport_trocwear.tex` dans un projet Overleaf 
 - [MongoDB : atomicité](https://www.mongodb.com/docs/manual/core/write-operations-atomicity/)
 - [Cassandra : modélisation](https://cassandra.apache.org/doc/stable/cassandra/developing/data-modeling/intro.html)
 - [Neo4j : MATCH](https://neo4j.com/docs/cypher-manual/current/clauses/match/)
+- [ASP.NET Core](https://learn.microsoft.com/aspnet/core/)
+- [Angular](https://angular.dev/)

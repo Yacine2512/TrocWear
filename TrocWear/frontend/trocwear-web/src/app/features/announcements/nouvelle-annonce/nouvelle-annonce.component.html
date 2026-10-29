@@ -1,0 +1,54 @@
+<section class="metier-page">
+  <div class="page-head">
+    <div>
+      <div class="eyebrow">PUBLIER</div>
+      <h1>Nouvelle annonce</h1>
+      <p class="muted">Donne une seconde vie à une pièce de ton dressing.</p>
+    </div>
+    <a routerLink="/annonces" class="secondary">Retour aux annonces</a>
+  </div>
+
+  <form class="metier-form" [formGroup]="form" (ngSubmit)="submit()">
+    <div class="grid">
+      <div>
+        <label for="titre">Titre</label>
+        <input id="titre" formControlName="titre" placeholder="Veste en jean" />
+        @if (form.controls.titre.touched && form.controls.titre.invalid) {
+          <small class="error">Titre obligatoire (200 caractères max).</small>
+        }
+      </div>
+      <div>
+        <label for="prix">Prix (€)</label>
+        <input
+          id="prix"
+          formControlName="prix"
+          inputmode="decimal"
+          placeholder="23,00"
+        />
+        @if (form.controls.prix.touched && form.controls.prix.invalid) {
+          <small class="error">Montant positif, 2 décimales max.</small>
+        }
+      </div>
+      <div class="full">
+        <label for="description">Description</label>
+        <textarea
+          id="description"
+          formControlName="description"
+          placeholder="Taille, état, marque…"
+        ></textarea>
+      </div>
+    </div>
+    @if (error()) {
+      <p class="notice-error" role="alert">{{ error() }}</p>
+    }
+    <div class="actions">
+      <button
+        class="primary"
+        type="submit"
+        [disabled]="form.invalid || loading()"
+      >
+        {{ loading() ? "Publication…" : "Publier l'annonce" }}
+      </button>
+    </div>
+  </form>
+</section>

@@ -1,0 +1,11 @@
+# Surcharge de développement : expose PostgreSQL et Redis sur la machine locale
+# pour lancer l'API avec `dotnet run` (voir README).
+# Usage : docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+services:
+  postgres:
+    ports: ['127.0.0.1:5432:5432']
+  redis:
+    ports: ['127.0.0.1:6379:6379']
+  api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development

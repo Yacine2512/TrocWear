@@ -1,0 +1,102 @@
+<section class="auth-layout">
+  <div class="auth-intro">
+    <div class="eyebrow">BIENVENUE CHEZ TOI</div>
+    <h1>Une seconde vie<br /><em>pour chaque pièce.</em></h1>
+    <p>
+      Crée un compte et rejoins une communauté qui mise sur le style, pas le
+      gaspillage.
+    </p>
+    <div class="decor"><span>✦</span> C'est mieux quand ça circule.</div>
+  </div>
+  <div class="auth-card">
+    <h2>Créer un compte</h2>
+    <p class="muted">Quelques détails pour commencer.</p>
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <mat-form-field appearance="outline"
+        ><mat-label>Pseudonyme</mat-label
+        ><input
+          matInput
+          id="pseudo"
+          formControlName="pseudonyme"
+          autocomplete="nickname"
+          placeholder="ton_pseudo"
+      /></mat-form-field>
+      @if (
+        form.controls.pseudonyme.touched && form.controls.pseudonyme.invalid
+      ) {
+        <small class="error">Entre 2 et 60 caractères.</small>
+      }
+      <mat-form-field appearance="outline"
+        ><mat-label>Adresse email</mat-label
+        ><input
+          matInput
+          id="email"
+          type="email"
+          formControlName="email"
+          autocomplete="email"
+          placeholder="prenom@exemple.fr"
+      /></mat-form-field>
+      @if (form.controls.email.touched && form.controls.email.invalid) {
+        <small class="error">Email invalide.</small>
+      }
+      <mat-form-field appearance="outline"
+        ><mat-label>Mot de passe</mat-label
+        ><input
+          matInput
+          id="password"
+          type="password"
+          formControlName="password"
+          autocomplete="new-password"
+          placeholder="12 caractères minimum"
+      /></mat-form-field>
+      @if (form.controls.password.touched && form.controls.password.invalid) {
+        <small class="error">Entre 12 et 128 caractères.</small>
+      }
+      <mat-form-field appearance="outline"
+        ><mat-label>Confirmer le mot de passe</mat-label
+        ><input
+          matInput
+          id="confirm"
+          type="password"
+          formControlName="confirmation"
+          autocomplete="new-password"
+          placeholder="Confirme ton mot de passe"
+      /></mat-form-field>
+      @if (
+        form.controls.confirmation.touched &&
+        form.controls.confirmation.value !== form.controls.password.value
+      ) {
+        <small class="error">Les mots de passe sont différents.</small>
+      }
+      <mat-form-field appearance="outline"
+        ><mat-label>Adresse par défaut (optionnel)</mat-label
+        ><input
+          matInput
+          id="adresse"
+          formControlName="adresseParDefaut"
+          autocomplete="street-address"
+          placeholder="12 rue des Lilas, 75011 Paris"
+      /></mat-form-field>
+      @if (
+        form.controls.adresseParDefaut.touched &&
+        form.controls.adresseParDefaut.invalid
+      ) {
+        <small class="error">1000 caractères maximum.</small>
+      }
+      @if (error()) {
+        <p class="notice-error" role="alert">{{ error() }}</p>
+      }
+      <button
+        mat-flat-button
+        class="primary"
+        type="submit"
+        [disabled]="form.invalid || loading()"
+      >
+        {{ loading() ? "Création…" : "Créer mon compte" }}
+      </button>
+    </form>
+    <p class="form-foot">
+      Déjà membre ? <a routerLink="/connexion">Se connecter</a>
+    </p>
+  </div>
+</section>

@@ -1,0 +1,8 @@
+.env
+.git
+**/bin/
+**/obj/
+**/node_modules/
+frontend/
+.vscode/
+.idea/

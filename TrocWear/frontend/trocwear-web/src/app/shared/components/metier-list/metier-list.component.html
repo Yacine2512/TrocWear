@@ -1,0 +1,91 @@
+@if (error()) {
+  <p class="notice-error" role="alert">{{ error() }}</p>
+}
+@if (loading()) {
+  <p class="muted">Chargement…</p>
+} @else if (items().length === 0) {
+  <p class="muted empty">{{ emptyText() }}</p>
+} @else {
+  <ul class="metier-list">
+    @for (item of items(); track item.id) {
+      <li class="metier-item">
+        <div class="metier-main">
+          <h3>{{ item.titre }}</h3>
+          @if (item.description) {
+            <p>{{ item.description }}</p>
+          }
+          <dl>
+            <div>
+              <dt>{{ montantLabel() }}</dt>
+              <dd>
+                {{
+                  item.prixCentimes / 100
+                    | currency: "EUR" : "symbol" : "1.2-2" : "fr"
+                }}
+              </dd>
+            </div>
+            @if (item.annonceId) {
+              <div>
+                <dt>Annonce</dt>
+                <dd class="mono">{{ item.annonceId }}</dd>
+              </div>
+            }
+            @if (item.vendeurId) {
+              <div>
+                <dt>Vendeur</dt>
+                <dd class="mono">{{ item.vendeurId }}</dd>
+              </div>
+            }
+            @if (item.acheteurId) {
+              <div>
+                <dt>Acheteur</dt>
+                <dd class="mono">{{ item.acheteurId }}</dd>
+              </div>
+            }
+            @if (item.adresse) {
+              <div>
+                <dt>Adresse</dt>
+                <dd>{{ item.adresse }}</dd>
+              </div>
+            }
+            <div>
+              <dt>Créé le</dt>
+              <dd>{{ item.createdAt | date: "dd/MM/yyyy HH:mm" }}</dd>
+            </div>
+            <div>
+              <dt>Identifiant</dt>
+              <dd class="mono">{{ item.id }}</dd>
+            </div>
+          </dl>
+        </div>
+        <div class="metier-actions">
+          <label>
+            Statut
+            <select
+              [value]="item.statut"
+              [disabled]="busyId() === item.id"
+              (change)="changeStatus(item, $any($event.target).value)"
+            >
+              @if (!statuts().includes(item.statut)) {
+                <option [value]="item.statut">{{ item.statut }}</option>
+              }
+              @for (s of statuts(); track s) {
+                <option [value]="s" [selected]="s === item.statut">
+                  {{ s }}
+                </option>
+              }
+            </select>
+          </label>
+          <button
+            type="button"
+            class="danger"
+            [disabled]="busyId() === item.id"
+            (click)="remove(item)"
+          >
+            Supprimer
+          </button>
+        </div>
+      </li>
+    }
+  </ul>
+}

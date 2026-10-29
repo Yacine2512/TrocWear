@@ -1,0 +1,123 @@
+<section class="metier-page">
+  <div class="page-head">
+    <div>
+      <div class="eyebrow">MES LIVRAISONS</div>
+      <h1>Livraisons</h1>
+      <p class="muted">
+        Organise l'envoi des pièces échangées et suis leur statut.
+      </p>
+    </div>
+  </div>
+
+  <form class="metier-form" [formGroup]="form" (ngSubmit)="submit()">
+    <h2>Nouvelle livraison</h2>
+    <div class="grid">
+      <div>
+        <label for="titre">Intitulé</label>
+        <input
+          id="titre"
+          formControlName="titre"
+          placeholder="Envoi veste en jean"
+        />
+        @if (form.controls.titre.touched && form.controls.titre.invalid) {
+          <small class="error"
+            >Intitulé obligatoire (200 caractères max).</small
+          >
+        }
+      </div>
+      <div>
+        <label for="frais">Frais de port (€)</label>
+        <input
+          id="frais"
+          formControlName="frais"
+          inputmode="decimal"
+          placeholder="4,90"
+        />
+        @if (form.controls.frais.touched && form.controls.frais.invalid) {
+          <small class="error">Montant positif, 2 décimales max.</small>
+        }
+      </div>
+      <div class="full">
+        <label for="adresse">Adresse de livraison</label>
+        <input
+          id="adresse"
+          formControlName="adresse"
+          placeholder="12 rue des Lilas, 75011 Paris"
+        />
+        @if (form.controls.adresse.touched && form.controls.adresse.invalid) {
+          <small class="error"
+            >Adresse obligatoire (1000 caractères max).</small
+          >
+        }
+      </div>
+      <div>
+        <label for="annonceId">Identifiant de l'annonce (optionnel)</label>
+        <input
+          id="annonceId"
+          formControlName="annonceId"
+          placeholder="xxxxxxxx-xxxx-…"
+        />
+        @if (
+          form.controls.annonceId.touched && form.controls.annonceId.invalid
+        ) {
+          <small class="error">Identifiant (GUID) invalide.</small>
+        }
+      </div>
+      <div>
+        <label for="acheteurId">Identifiant de l'acheteur (optionnel)</label>
+        <input
+          id="acheteurId"
+          formControlName="acheteurId"
+          placeholder="xxxxxxxx-xxxx-…"
+        />
+        @if (
+          form.controls.acheteurId.touched && form.controls.acheteurId.invalid
+        ) {
+          <small class="error">Identifiant (GUID) invalide.</small>
+        }
+      </div>
+      <div>
+        <label for="vendeurId">Identifiant du vendeur (optionnel)</label>
+        <input
+          id="vendeurId"
+          formControlName="vendeurId"
+          placeholder="xxxxxxxx-xxxx-…"
+        />
+        @if (
+          form.controls.vendeurId.touched && form.controls.vendeurId.invalid
+        ) {
+          <small class="error">Identifiant (GUID) invalide.</small>
+        }
+      </div>
+      <div class="full">
+        <label for="description">Instructions</label>
+        <textarea
+          id="description"
+          formControlName="description"
+          placeholder="Point relais, horaires…"
+        ></textarea>
+      </div>
+    </div>
+    @if (error()) {
+      <p class="notice-error" role="alert">{{ error() }}</p>
+    }
+    @if (success()) {
+      <p class="notice-ok" role="status">{{ success() }}</p>
+    }
+    <div class="actions">
+      <button
+        class="primary"
+        type="submit"
+        [disabled]="form.invalid || loading()"
+      >
+        {{ loading() ? "Création…" : "Créer la livraison" }}
+      </button>
+    </div>
+  </form>
+
+  <app-metier-list
+    type="livraisons"
+    montantLabel="Frais de port"
+    emptyText="Aucune livraison pour le moment."
+  />
+</section>

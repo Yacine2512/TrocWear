@@ -1,0 +1,86 @@
+<section class="account-layout">
+  <div class="eyebrow">TON ESPACE PERSONNEL</div>
+  <h1>
+    Bienvenue, <em>{{ auth.user()?.pseudonyme }}</em> !
+  </h1>
+  <p class="muted">Retrouve ici ton profil et tes prochains échanges.</p>
+  <div class="account-card">
+    <span class="avatar">{{
+      auth.user()?.pseudonyme?.slice(0, 1)?.toUpperCase()
+    }}</span>
+    <div class="account-info">
+      @if (editing()) {
+        <form
+          class="profile-form"
+          [formGroup]="profileForm"
+          (ngSubmit)="saveProfile()"
+        >
+          <label for="pseudonyme">Pseudonyme</label>
+          <input
+            id="pseudonyme"
+            formControlName="pseudonyme"
+            autocomplete="nickname"
+          />
+          @if (
+            profileForm.controls.pseudonyme.touched &&
+            profileForm.controls.pseudonyme.invalid
+          ) {
+            <small class="error">Entre 2 et 60 caractères.</small>
+          }
+          @if (profileError()) {
+            <p class="notice-error" role="alert">{{ profileError() }}</p>
+          }
+          <div class="profile-actions">
+            <button
+              class="secondary"
+              type="submit"
+              [disabled]="profileForm.invalid || saving()"
+            >
+              {{ saving() ? "Enregistrement…" : "Enregistrer" }}
+            </button>
+            <button class="link" type="button" (click)="editing.set(false)">
+              Annuler
+            </button>
+          </div>
+        </form>
+      } @else {
+        <h2>{{ auth.user()?.pseudonyme }}</h2>
+        <p>{{ auth.user()?.email }}</p>
+        @if (auth.user()?.adresseParDefaut) {
+          <p>{{ auth.user()?.adresseParDefaut }}</p>
+        }
+        <small
+          >Profil {{ auth.user()?.status }} · v{{ auth.user()?.version }}</small
+        >
+        <div>
+          <button class="link" type="button" (click)="startEdit()">
+            Modifier mon pseudonyme
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+  <div class="coming">
+    <a routerLink="/annonces">
+      <span>01</span>
+      <h3>Mes annonces</h3>
+      <p>Publie et gère tes vêtements en vente.</p>
+    </a>
+    <a routerLink="/negociations">
+      <span>02</span>
+      <h3>Mes négociations</h3>
+      <p>Propose un prix et suis tes échanges.</p>
+    </a>
+    <a routerLink="/livraisons">
+      <span>03</span>
+      <h3>Mes livraisons</h3>
+      <p>Organise l'envoi des pièces.</p>
+    </a>
+  </div>
+  @if (error()) {
+    <p class="notice-error">{{ error() }}</p>
+  }
+  <button class="secondary" (click)="logout()" [disabled]="loading()">
+    {{ loading() ? "Déconnexion…" : "Se déconnecter" }}
+  </button>
+</section>

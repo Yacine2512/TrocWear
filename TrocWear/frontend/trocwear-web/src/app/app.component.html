@@ -1,0 +1,19 @@
+<header class="topbar">
+  <a routerLink="/" class="brand"
+    >Troc<span>Wear</span><span class="brand-dot">.</span></a
+  >
+  <nav>
+    @if (auth.user(); as user) {
+      <a routerLink="/annonces" routerLinkActive="active">Annonces</a>
+      <a routerLink="/negociations" routerLinkActive="active">Négociations</a>
+      <a routerLink="/livraisons" routerLinkActive="active">Livraisons</a>
+      <a routerLink="/mon-compte" class="nav-account">{{ user.pseudonyme }}</a>
+    } @else {
+      <a routerLink="/connexion" class="nav-account">Connexion</a>
+    }
+  </nav>
+</header>
+<main><router-outlet /></main>
+<footer>
+  © 2026 TrocWear · Projet pédagogique · Vêtements de seconde main
+</footer>
