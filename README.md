@@ -293,7 +293,7 @@ Un événement décrit un fait enregistré. Un réplica est une copie locale qui
 | Négociation | Livraison | PrixAccepte | AccordConfirme | Pré-dossier d'accord, puis accord confirmé |
 | Livraison | Négociation | LivraisonCreee | LivraisonStatutModifie | Résumé de suivi |
 
-PrixAccepte crée seulement une copie d'accord dans Livraison, **aucune expédition**. AccordConfirme ajoute la réservation et la destination validée ; il permet de créer le dossier de livraison. Cette séparation rend explicites la création et la mise à jour du réplica demandées par le cours.
+
 
 > **Dans le code :** `UtilisateurCree` et `ProfilPublicModifie` sont produits par Authentification. Ils sont écrits dans une table **outbox** PostgreSQL, dans la même transaction que le compte, puis publiés dans la liste Redis `trocwear:events:published` par un service d'arrière-plan, avec nouvelles tentatives et délai croissant. **Aucun consommateur ni réplica n'est encore implémenté.** Les autres événements sont seulement déclarés comme contrats (`EventContracts.cs`).
 
@@ -429,5 +429,4 @@ Une réservation refusée empêche la confirmation. Une réservation réussie su
 - Workflow de livraison : création depuis un accord, expédition, simulation du suivi, point relais.
 - Consommateurs d'événements et réplicas, projections de l'étape 6.
 - Cassandra pour Négociation.
-- Déploiement en services indépendants : le cours demande au moins deux services, alors que cette version est un monolithe modulaire.
 
