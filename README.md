@@ -1,6 +1,6 @@
 # TrocWear
 
-Plateforme de seconde main entre particuliers : annonces, négociation de prix, favoris et livraison simulée, avec un seul compte pour acheter et vendre.
+Plateforme de seconde main entre particuliers : annonces, négociation de prix et livraison simulée, avec un seul compte pour acheter et vendre.
 
 > Projet pédagogique. Une **première version exécutable** est implémentée : authentification complète, et gestion des annonces, négociations et livraisons sous forme de CRUD. Les sections « Conception » décrivent la cible définie dans le rapport ; l'écart entre cette cible et le code est résumé dans [État du projet](#état-du-projet).
 
@@ -8,7 +8,7 @@ Plateforme de seconde main entre particuliers : annonces, négociation de prix, 
 
 Un utilisateur publie des articles, consulte ceux des autres et négocie leur prix. Il peut acheter et vendre avec le même compte et la même session. Après un accord sur le prix, il confirme son achat ; la réservation doit réussir avant la création d'une livraison.
 
-Les favoris servent aux recommandations. Le transporteur, le suivi et les points relais sont simulés. L'acheteur peut modifier sa destination avant expédition, ou choisir un relais après une tentative échouée.
+Le transporteur, le suivi et les points relais sont simulés. L'acheteur peut modifier sa destination avant expédition, ou choisir un relais après une tentative échouée.
 
 ## Démarrage rapide (Docker)
 
@@ -110,15 +110,14 @@ Exemple de création : `{ "titre": "Veste", "description": "Bon état", "prixCen
 
 ## Services et stockage
 
-| Service | Responsabilité | Conception (rapport) | Implémenté |
+| Service | Responsabilité | Conception | Implémenté |
 |---|---|---|---|
-| Authentification | Comptes et sessions | SQL : PostgreSQL ; clé-valeur : Redis | ✅ PostgreSQL + Redis, comme prévu |
-| Annonces | Publication, recherche et réservation | Document : MongoDB | ⚠️ MongoDB `trocwear_annonces` : CRUD et statut uniquement |
-| Négociation | Offres, contre-offres, accord | Wide-column : Cassandra | ⚠️ MongoDB `trocwear_negociations` : CRUD simplifié, pas de Cassandra |
-| Livraison | Destination, tentatives et suivi | Document : MongoDB | ⚠️ MongoDB `trocwear_livraisons` : CRUD simplifié |
-| Recommandation | Favoris et suggestions | Graphe : Neo4j | ❌ Non implémenté |
+| Authentification | Comptes et sessions | SQL : PostgreSQL ; clé-valeur : Redis |  PostgreSQL + Redis, comme prévu |
+| Annonces | Publication, recherche et réservation | Document : MongoDB |  MongoDB `trocwear_annonces` : CRUD et statut uniquement |
+| Négociation | Offres, contre-offres, accord | Wide-column : Cassandra |  MongoDB `trocwear_negociations` : CRUD simplifié, pas de Cassandra |
+| Livraison | Destination, tentatives et suivi | Document : MongoDB |  MongoDB `trocwear_livraisons` : CRUD simplifié |
 
-Ces choix illustrent différents modèles ; SQL pourrait aussi répondre à de nombreux besoins.
+Ces choix illustrent différents modèles ; SQL pourrait aussi répondre à de nombreux besoins. Le service de recommandation (favoris, graphe Neo4j) envisagé au départ a été retiré du périmètre.
 
 ---
 
@@ -136,7 +135,6 @@ Une commande demande un traitement et peut être refusée. L'acteur est détermi
 | Annonces | PublierAnnonce, ModifierAnnonce, ReserverAnnonce, LibererReservation |
 | Négociation | OuvrirNegociation, SoumettreProposition, AccepterProposition, RefuserProposition, ConfirmerAchat |
 | Livraison | CreerLivraisonDepuisAccord, ModifierDestination, DeclarerExpedition, SimulerProgression, SignalerEchecLivraison, ChoisirPointRelais, ConfirmerReception |
-| Recommandation | AjouterFavori, RetirerFavori |
 
 > **Dans le code :** les quatre commandes d'Authentification sont implémentées (`RegisterUserCommand`, `LoginUserCommand`, `LogoutUserCommand`, `UpdateProfileCommand`). Pour les autres services, seules des opérations génériques existent : créer, changer de statut, supprimer.
 
@@ -167,9 +165,8 @@ Un agrégat rassemble les données et les règles qui doivent rester cohérentes
 | Annonce | Un seul acheteur peut réserver l'article |
 | Négociation | Seule une proposition active peut être acceptée |
 | Livraison | Un dossier par accord confirmé ; transitions contrôlées |
-| Favori | Un seul favori par couple utilisateur/annonce |
 
-Les sessions expirent indépendamment des comptes. Le graphe entier et le résultat des recommandations ne sont pas des agrégats uniques.
+Les sessions expirent indépendamment des comptes.
 
 ### Utilisateur — SQL
 
@@ -286,19 +283,6 @@ L'historique est une table séparée : partition par négociation, tri par date 
 
 > **Dans le code :** document générique dans `trocwear_livraisons`, avec une adresse texte. L'interface la pré-remplit avec l'adresse par défaut du profil.
 
-### Favori — graphe
-
-```json
-{
-  "favoriId": "U12:A20",
-  "utilisateurId": "U12",
-  "annonceId": "A20",
-  "creeLe": "2026-10-07T11:00:00Z"
-}
-```
-
-> **Dans le code :** non implémenté.
-
 ## Événements et réplicas — étape 5
 
 Un événement décrit un fait enregistré. Un réplica est une copie locale qui permet au consommateur de lire les données sans appeler leur service source à chaque fois.
@@ -306,7 +290,6 @@ Un événement décrit un fait enregistré. Un réplica est une copie locale qui
 | Source | Consommateur | Événement de création | Événement de mise à jour | Copie locale |
 |---|---|---|---|---|
 | Authentification | Annonces, Négociation | UtilisateurCree | ProfilPublicModifie | Identifiant et pseudonyme |
-| Annonces | Recommandation | AnnoncePubliee | AnnonceModifiee, AnnonceReservee | Description publique et disponibilité |
 | Négociation | Livraison | PrixAccepte | AccordConfirme | Pré-dossier d'accord, puis accord confirmé |
 | Livraison | Négociation | LivraisonCreee | LivraisonStatutModifie | Résumé de suivi |
 
@@ -413,41 +396,6 @@ Après un échec, l'acheteur choisit un relais valide :
 
 Livraison passe de `en_attente_nouvelle_destination` à `reacheminement_planifie`. Le service conserve la tentative échouée et remplace la destination effective par le relais. Il ne modifie ni l'adresse du compte ni l'accord initial.
 
-### Annonce vers Recommandation
-
-Le service transforme les annonces en nœuds Article, normalise les catégories et calcule l'éligibilité à partir du statut. Les favoris deviennent des relations AIME. Les articles réservés, déjà favoris ou appartenant à l'utilisateur sont exclus des suggestions.
-
-```json
-{
-  "articleId": "A20",
-  "versionAnnonce": 2,
-  "vendeurId": "U30",
-  "categorieNormalisee": "veste",
-  "tailleNormalisee": "M",
-  "prixCentimes": 3800,
-  "eligible": true
-}
-```
-
-Requête :
-
-```json
-{"requete":"RecommanderArticles","parametres":{"limite":10}}
-```
-
-L'utilisateur est déduit de la session. Exemple de règle : recommander les articles aimés par d'autres utilisateurs ayant des favoris en commun avec lui.
-
-## Exemples d'accès aux stockages
-
-| Modèle | Accès principal | Exemple | Dans le code |
-|---|---|---|---|
-| SQL | Retrouver le compte par email unique | SELECT paramétré | ✅ EF Core (écriture) et Dapper (`SELECT … WHERE "Id" = @UserId`) |
-| Clé-valeur | Retrouver la session par jeton | Redis GET, SET avec EX | ✅ `SET session:<hash> … EX 3600`, `GET`, `DEL` |
-| Document | Consulter une annonce ; réserver sous condition | MongoDB findOneAndUpdate | ⚠️ Find, ReplaceOne (upsert), DeleteOne ; pas de réservation conditionnelle |
-| Wide-column | Lire les 20 derniers échanges de N45 | Partition N45 et tri temporel | ❌ |
-| Graphe | Parcourir les favoris communs | Cypher MATCH | ❌ |
-
-Le rapport contient le SQL, les commandes Redis, les requêtes MongoDB, le CQL Cassandra et une requête Cypher complète.
 
 ## Parcours principal
 
@@ -461,7 +409,6 @@ Le rapport contient le SQL, les commandes Redis, les requêtes MongoDB, le CQL C
 
 Une réservation refusée empêche la confirmation. Une réservation réussie suivie d'une confirmation impossible nécessite une compensation coordonnée. Une panne temporaire de Livraison se traite par reprise, sans créer de doublon.
 
-> **Dans le code :** seule l'étape 1 est réalisée telle quelle. Les négociations et livraisons se créent manuellement, sans enchaînement automatique, et les identifiants d'annonce, d'acheteur ou de vendeur se saisissent à la main.
 
 ---
 
@@ -481,33 +428,6 @@ Une réservation refusée empêche la confirmation. Une réservation réussie su
 - Réservation atomique d'une annonce, workflow de négociation (propositions, contre-offres, acceptation, confirmation d'achat).
 - Workflow de livraison : création depuis un accord, expédition, simulation du suivi, point relais.
 - Consommateurs d'événements et réplicas, projections de l'étape 6.
-- Cassandra (Négociation), Neo4j (Favoris et Recommandation).
+- Cassandra pour Négociation.
 - Déploiement en services indépendants : le cours demande au moins deux services, alors que cette version est un monolithe modulaire.
 
-### Limites connues
-
-- La migration EF Core initiale a été écrite à la main : l'avertissement `PendingModelChangesWarning` est ignoré en développement. Régénérer les migrations avant toute mise en production.
-- Actualiser la page (F5) sur une adresse imbriquée (ex. `/annonces/nouvelle`) affiche une page blanche : il manque `<base href="/" />` dans `frontend/trocwear-web/src/index.html`.
-- Le message `Cannot load library libgssapi_krb5.so.2` dans les logs de l'API est sans conséquence (authentification Kerberos non utilisée).
-
-## Vérifications
-
-```bash
-python3 scripts/verify-structure.py   # contrôles statiques : projets, références, JSON, composants
-bash scripts/test-auth-e2e.sh         # parcours d'authentification complet (application lancée, Git Bash ou WSL)
-```
-
-Le test de bout en bout vérifie l'inscription, le refus d'un email en double quelle que soit la casse, la connexion, la présence et le TTL de la session dans Redis, le hachage du mot de passe et l'événement outbox dans PostgreSQL, la modification du profil, puis la déconnexion et la révocation de la session.
-
-## Rapport
-
-Pour compiler le rapport, placer `rapport_trocwear.tex` dans un projet Overleaf et choisir **XeLaTeX**, ou exécuter deux fois `xelatex rapport_trocwear.tex` dans un environnement LaTeX équipé. Le fichier est autonome et ne nécessite pas d'images externes.
-
-## Documentation officielle
-
-- [Redis SET](https://redis.io/docs/latest/commands/set/)
-- [MongoDB : atomicité](https://www.mongodb.com/docs/manual/core/write-operations-atomicity/)
-- [Cassandra : modélisation](https://cassandra.apache.org/doc/stable/cassandra/developing/data-modeling/intro.html)
-- [Neo4j : MATCH](https://neo4j.com/docs/cypher-manual/current/clauses/match/)
-- [ASP.NET Core](https://learn.microsoft.com/aspnet/core/)
-- [Angular](https://angular.dev/)
